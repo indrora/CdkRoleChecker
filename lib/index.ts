@@ -3,6 +3,7 @@ import { ImagePullPrincipalType } from 'aws-cdk-lib/aws-codebuild';
 import { CfnRole, Policy, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { isMaster } from 'cluster';
 import { Construct, IConstruct } from 'constructs';
+import minimatch
 // import * as sqs from 'aws-cdk-lib/aws-sqs';
 
 export interface CdkRoleCheckerProps {
@@ -56,19 +57,19 @@ export class CdkRoleChecker implements IAspect {
   }
   visit(node: IConstruct): void {
     if (node instanceof aws_iam.Role) {
-      
+
       const cfnRole = (node.node.findChild('Resource') as CfnRole);
       for (const policy of (cfnRole.policies as CfnRole.PolicyProperty[])) {
         for (const pStatement of policy.policyDocument.statements as PolicyStatement[]) {
           if (!this.check(pStatement, node)) {
-          Annotations.of(node).addError("Role does not conform to requirements")
+            Annotations.of(node).addError("Role does not conform to requirements")
+          }
         }
       }
     }
   }
-}
 
-private check(statement: PolicyStatement, role: aws_iam.Role): Boolean {
+  public check(statement: PolicyStatement, role: aws_iam.Role): Boolean {
 
     // Deny statements are out of scope here, as they're default. 
     if (statement.effect == aws_iam.Effect.DENY) {
@@ -77,18 +78,41 @@ private check(statement: PolicyStatement, role: aws_iam.Role): Boolean {
 
     // Easy first pass: Are there any wildcards and should we care? 
     if (this.banWildcardCalls) {
-      if(statement.actions.some( (x) => {x.endsWith('*')} )) 
-      {
-        console.error("Foundwildcard: {}")
-        Annotations.of(role).addError("Found wildcard!")
+      if (statement.actions.some((x) => { x.endsWith('*') })) {
+        console.error("Found wildcard: " + statement.actions.find((x) => { x.endsWith('*') }))
+        Annotations.of(role).addError("Found wildcard!");
       }
     }
 
     if (this.allowedCalls) {
-      // We should check that the calls being made by the 
+      // Check each call to make sure that it is allowed.
+      for (const checkCall of statement.actions) {
+        // If it's already there, no problem. 
+        if (this.allowedCalls.includes(checkCall)) {
+          if (checkCall.indexOf('*') >= 0 && this.banWildcardCalls) {
+            Annotations.of(role).addError("Banned wildcard found: "+checkCall);
+          }
+          continue;
+        }
+        // Check if it's a wildcard
+        if (checkCall.indexOf('*') >= 0) {
+          // if we ban wildcards, mark it and continue
+          if (this.banWildcardCalls) {
+            // Not okay
+            Annotations.of(role).addError("Banned wildcard found: "+checkCall)
+            continue;
+          }
+          
+          const unwildcard = checkCall.replace('*', '')
+          
+          // 
+          
+        }
+      }
     }
 
-    return true
+
+    return true;
   }
 
 }
