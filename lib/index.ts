@@ -69,7 +69,7 @@ export class CdkRoleChecker implements IAspect {
 
     // Deny statements are out of scope here, as they're default. 
     if (statement.effect == aws_iam.Effect.DENY) {
-      return true;
+      return;
     }
 
     // Easy first pass: Are there any wildcards and should we care? 
