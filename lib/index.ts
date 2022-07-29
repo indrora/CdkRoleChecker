@@ -55,7 +55,7 @@ export class CdkRoleChecker implements IAspect {
       const cfnRole = (node.node.findChild('Resource') as CfnRole);
       for (const policy of (cfnRole.policies as CfnRole.PolicyProperty[])) {
         for (const pStatement of policy.policyDocument.statements as PolicyStatement[]) {
-          if (!this.check(pStatement, node)) {
+          if (0 < this.check(pStatement, node)) {
             Annotations.of(node).addInfo("Role does not conform to requirements");
           }
         }
@@ -65,12 +65,14 @@ export class CdkRoleChecker implements IAspect {
     }
   }
 
-  public check(statement: PolicyStatement, role: aws_iam.Role)  {
+  public check(statement: PolicyStatement, role: aws_iam.Role): number  {
 
     // Deny statements are out of scope here, as they're default. 
     if (statement.effect == aws_iam.Effect.DENY) {
-      return;
+      return 0;
     }
+
+    let errors = 0;
 
     // Easy first pass: Are there any wildcards and should we care? 
     if (this.banWildcardCalls) {
@@ -78,6 +80,7 @@ export class CdkRoleChecker implements IAspect {
       const maybeWildcards = statement.actions.filter( ( s ) => s.endsWith("*"))
       for(const wildAction of maybeWildcards) {
         Annotations.of(role).addError("Wildcard used: "+wildAction);
+        errors +=1;
       }
     }
   
@@ -86,6 +89,7 @@ export class CdkRoleChecker implements IAspect {
 
     if(statement.actions.some((a) => {a.indexOf('*') != -1 && !a.endsWith("*")})) {
       Annotations.of(role).addWarning("You have described a wildcard with a suffix and prefix. This is likely not invalid but may lead to unintended consequences.");
+      errors += 1;
     }
 
     if(this.allowedCalls) {
@@ -93,6 +97,7 @@ export class CdkRoleChecker implements IAspect {
       for(const checkCall of statement.actions) {
         if(!checkCall.endsWith("*") && !this.allowedCalls.some((x)=> minimatch(checkCall, x))) {
           Annotations.of(role).addError("Role "+role.roleName+" contains non-cleared permission "+checkCall)
+          errors +=1;
         } else if(checkCall.endsWith("*") && !this.banWildcardCalls) {
           // Wildcards are special. Wildcards must be a subset of *another* wildcard. 
           const possibleSuperset = this.allowedCalls.filter((s)=>s.endsWith("*"));
@@ -103,6 +108,7 @@ export class CdkRoleChecker implements IAspect {
             // There's no wildcard that matches it, or no direct literal.
             console.log("Adding error for "+checkCall)
             Annotations.of(role).addError("Role contains a wildcard with greater scope than allowed");
+            errors += 1;
           }
         }
       }
@@ -113,9 +119,12 @@ export class CdkRoleChecker implements IAspect {
         const maybeBanned = statement.actions.filter( (x) => minimatch(x, denycall) || ( x.endsWith('*') && minimatch(denycall, x)) ) ;
         if(maybeBanned.length > 0 ) {
           Annotations.of(role).addError("Role contains denied calls: "+maybeBanned.join(',') )
+          errors += 1
         }
       }
     }
+
+    return errors;
   }
 
 }

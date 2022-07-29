@@ -1,7 +1,7 @@
 {
   "name": "cdk-role-checker",
   "version": "0.1.0",
-  "license": "Apache2",
+  "license": "Apache-2.0",
   "author": "Morgan Gangwere <gangwere@amazon.com>",
   "description": "Validates IAM roles for CDK stacks against a short list of rules",
   "main": "lib/index.js",
