@@ -32,8 +32,10 @@ The following configuration options are available:
 * This is not a replacement for IAM Role Guard, only a check to make sure you're not doing something outright silly
   like allowing a third party CDK Construct granting itself every permission under the sun.
 
-This is not production quality -- This was produced for an internal hackathon. It looks specifically at
-policies attached to a role, 
+# How it works
+
+The checker looks for any roles or policies that are created by the CDK during synthesis, specifically finding anything
+that has a final Cloudformation type of `AWS::IAM::Policy` or `AWS::IAM::Role`. 
 
 ## Useful commands
 
