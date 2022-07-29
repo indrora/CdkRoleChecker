@@ -26,7 +26,7 @@ The following configuration options are available:
 
 # Caveats
 
-* If you specify both an Allow and a Deny list, the Allow list takes priority
+* If you specify both an Allow and a Deny list, the Deny list is ignored.
 * Any policy which is a DENY action policy is ignored during checking.
 * This probably doesn't work with Managed Policies
 * This is not a replacement for IAM Role Guard, only a check to make sure you're not doing something outright silly
